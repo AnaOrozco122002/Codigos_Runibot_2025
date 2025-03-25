@@ -95,10 +95,10 @@ void setup() {
 
 void loop() {
   
-  Estado = digitalRead(MInit);
+  //Estado = digitalRead(MInit);
   //Estado=1; //Para Desactivar el modulo de Inicio
   while (Estado) {
-    Estado = digitalRead(MInit);
+    //Estado = digitalRead(MInit);
     Tinicio = millis();                         // toma el valor en milisengundos
     Salida = Lectura_Sensor();                  // funcion de lectura de la variable salida del  proceso
     Control = Controlador(Referencia, Salida);  // funcion de la ley de control
@@ -110,6 +110,7 @@ void loop() {
       Datos();
     }
     turen = true; //Variable que indica que se entro en el while
+    //Serial.println("Entro");
   }
   if(turen){
     ledcWrite(Canales[0], 0);
@@ -225,16 +226,16 @@ void Inicializacion_WIFI(){
   // Configuración del Access Point
   WiFi.softAPConfig(local_IP, gateway, subnet);
   WiFi.softAP(ssid, password);
-  Serial.println("Access Point Iniciado");
+  /*Serial.println("Access Point Iniciado");
   Serial.print("IP del servidor: ");
-  Serial.println(WiFi.softAPIP());
+  Serial.println(WiFi.softAPIP());*/
   server.begin();
 }
 
 void Datos(){
   WiFiClient client = server.available();
   if (client) {
-    Serial.println("Cliente conectado");
+    //Serial.println("Cliente conectado");
     String request = "";
     // Lee la solicitud completa del cliente
     while (client.connected()) {
@@ -244,9 +245,11 @@ void Datos(){
         if (c == '\n') break;
       }
     }
-
+    
     Serial.println("Solicitud recibida:");
     Serial.println(request);
+    request.trim();  // Elimina espacios y saltos de línea
+
 
     // Extraer las 5 variables desde la URL
     if (request.indexOf("GET /?") != -1 && request.indexOf("accion=leer") == -1) {
@@ -266,12 +269,12 @@ void Datos(){
       Serial.println("Var5: " + var5);
       Serial.println("Var6: " + var6);*/
 
-      Kp=var1.toFloat();
-      Td=var2.toFloat();
-      Ti=var3.toFloat();
-      ValTurb=var4.toFloat();
-      Vmax=var5.toFloat();
-      offset =var6.toFloat();
+      if (var1 != "") Kp = var1.toFloat();
+      if (var2 != "") Td = var2.toFloat();
+      if (var3 != "") Ti = var3.toFloat();
+      if (var4 != "") ValTurb = var4.toFloat();
+      if (var5 != "") Vmax = var5.toFloat();
+      if (var6 != "") offset = var6.toFloat();
 
       /*Serial.println("Variables actualizadas:");
       Serial.println("Kp: " + String(Kp));
@@ -280,28 +283,49 @@ void Datos(){
       Serial.println("ValTurb: " + String(ValTurb));
       Serial.println("Vmax: " + String(Vmax));
       Serial.println("offset: " + String(offset));*/
-
+      client.println("OK");
     }
 
     // ✅ Responde a la app solo con los valores
     if (request.indexOf("accion=leer") != -1) {
-      Serial.println("Botón Leer presionado desde la app");
+      //Serial.println("Botón Leer presionado desde la app");
       client.println("HTTP/1.1 200 OK");
       client.println("Content-type:text/plain");
       client.println();
-      client.println(var1 + "," + var2 + "," + var3 + "," + var4 + "," + var5 + "," + var6 + "," +  Estado);
+      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
     }
     if (request.indexOf("accion=inicio") != -1) {
       Estado = 1;
-      Serial.println("Estado: INICIO");
+      /*Serial.print("Estado: ");
+      Serial.println(Estado);*/
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-type:text/plain");
+      client.println();
+      client.println("OK");
+      client.println();
     }
     if (request.indexOf("accion=parar") != -1) {
       Estado = 0;
-      Serial.println("Estado: PARAR");
+      /*Serial.print("Estado: ");
+      Serial.println(Estado);*/
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-type:text/plain");
+      client.println();
+      client.println("OK");
+      client.println();
     }
+
+    if (request == "") {
+      client.println("HTTP/1.1 400 Bad Request");
+      client.println("Content-type:text/plain");
+      client.println();
+      client.println("Error: solicitud vacía");
+      client.println();
+    }
+
     client.stop();
-    Serial.println("Cliente desconectado");
+    //Serial.println("Cliente desconectado");
   }
 }
 String getValue(String data, String key) {
