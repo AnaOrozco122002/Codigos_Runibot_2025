@@ -25,7 +25,7 @@ Servo myTurbina;
 
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
-int ValTurb = 80,minvaltur=50,maxvaltur=180; 
+int ValTurb = 150,minvaltur=50,maxvaltur=180; 
 float KTurb=0.6;
 
 //Variables para sensores
@@ -140,6 +140,9 @@ float Controlador(float Referencia, float Salida) {  // Funcion para la ley de c
   float E_derivativo;
   float Control;
 
+// Variables estáticas para mantener su valor entre llamadas
+  static float incremento_velocidad = 0.0; // Factor adicional de velocidad
+  static unsigned long tiempo_error_bajo = 0; // Tiempo que el error ha estado bajo
 
   Error = Referencia - Salida;
   Error = (Error > -0.2 && Error < 0) ? 0 : (Error > 0 && Error < 0.2) ? 0: Error;
@@ -148,7 +151,44 @@ float Controlador(float Referencia, float Salida) {  // Funcion para la ley de c
   E_derivativo = (Error - Error_ant) / (Tm / 1000.0);
   Control = Kp * (Error + Ti * E_integral + Td * E_derivativo);
   Error_ant = Error;
-  Control = (Control > 2.5) ? 2.5 : (Control < -2.5) ? -2.5: Control;
+
+  // Detección de recta: Si el error y su derivada son bajos durante un tiempo prolongado
+  if (abs(Error) < 0.2 && abs(E_derivativo) < 0.05) {
+    tiempo_error_bajo += Tm;  // Acumular tiempo con error bajo
+
+    // Si el robot ha estado en una recta por más de 3 segundos
+    if (tiempo_error_bajo >= 300) {
+      incremento_velocidad += 0.1; // Aumentar la velocidad
+      tiempo_error_bajo = 0; // Reiniciar el contador
+    }
+  }else {
+    tiempo_error_bajo = 0; // Reiniciar si el error no está en el rango
+    // Si el robot entra en una curva (derivada alta), reducir la velocidad
+    if (abs(E_derivativo) > 0.3) {
+      incremento_velocidad -= 0.1;
+    }
+  }
+
+  // Limitar el incremento de velocidad
+  incremento_velocidad = constrain(incremento_velocidad, 0.0, 0.5);
+
+  
+
+  if(Control > 0){
+    // Aplicar el incremento de velocidad
+    Control += incremento_velocidad;
+  }else{
+    // Aplicar el incremento de velocidad
+    if(incremento_velocidad>0){
+      Control -= incremento_velocidad;
+    }else{
+      Control += incremento_velocidad;
+    }
+    
+  }
+
+  Control = (Control > 2.7) ? 2.7 : (Control < -2.7) ? -2.7: Control;
+
   
   
   //Serial.println(Control);
@@ -294,20 +334,6 @@ void Datos(){
       client.println();
       client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
-      //client.stop();
-    }
-    // ✅ Nueva función: Botón LEER ESFUERZO
-    if (request.indexOf("accion=leer_esfuerzo") != -1) {
-      Serial.println("Botón Leer Esfuerzo presionado desde la app");
-      
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: text/plain");
-      client.println("Connection: close");
-      client.println();
-      client.println(",");
-      client.println(String(Salida) + "," + String(Control) + "," + String(Error));  // ✅ Solo los valores separados por coma
-      client.println();
-      client.stop();
     }
     if (request.indexOf("accion=inicio") != -1) {
       Estado = 1;

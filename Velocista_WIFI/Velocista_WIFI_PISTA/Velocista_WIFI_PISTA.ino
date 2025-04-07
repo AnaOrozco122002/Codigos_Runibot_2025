@@ -2,6 +2,22 @@
 #include <QTRSensors16.h>
 #include <ESP32Servo.h>
 #include <WiFi.h>
+#include <Preferences.h>
+
+//GUARDAR EN MEMORIA
+#define MAX_DATOS 500  // Máximo de datos guardados en la pista
+#define VENTANA_PROMEDIO 5  // Tamaño de la ventana del promedio móvil
+
+Preferences memoriaNVS;  // Objeto para manejar la memoria NVS
+float pista[MAX_DATOS];  // Array para almacenar la pista
+int indice = 0;  // Índice del array
+bool primeraVuelta = true;  // Variable para saber si es la primera vuelta
+bool VueltaCompletada=0;
+//VALOR PROMEDIO
+float errores[VENTANA_PROMEDIO];  // Array para el promedio móvil
+int indicePromedio = 0;  // Índice del promedio móvil
+
+
 
 //WIFI
 const char *ssid = "Sollow_WIFI";
@@ -25,7 +41,7 @@ Servo myTurbina;
 
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
-int ValTurb = 80,minvaltur=50,maxvaltur=180; 
+int ValTurb = 150,minvaltur=50,maxvaltur=180; 
 float KTurb=0.6;
 
 //Variables para sensores
@@ -143,12 +159,37 @@ float Controlador(float Referencia, float Salida) {  // Funcion para la ley de c
 
   Error = Referencia - Salida;
   Error = (Error > -0.2 && Error < 0) ? 0 : (Error > 0 && Error < 0.2) ? 0: Error;
+
+  Error = PromedioMovil(Error);
+
+  if (primeraVuelta) {
+    ReconocerPista(Error);  // Guarda la pista en la primera vuelta
+    if (DetectarVuelta(Error)) {  
+      primeraVuelta = false;  // Finaliza la primera vuelta
+      GuardarPistaEnNVS();  // Guarda la pista en memoria
+    }
+  }
+
+  // 🏎️ Usar la pista guardada para ajustar la velocidad
+  float AjusteVelocidad = 1.0;
+  if (!primeraVuelta) {
+    int posicion = indice % MAX_DATOS;  // Usamos el índice actual
+    if (abs(pista[posicion]) < 0.2) {  
+      AjusteVelocidad = 1.5;  // Aumenta velocidad en rectas
+    } else {  
+      AjusteVelocidad = 0.7;  // Reduce velocidad en curvas
+    }
+  }
+
   E_integral = E_integral + (((Error * (Tm / 1000.0)) + ((Tm / 1000.0) * (Error - Error_ant))) / 2.0);
   E_integral = (E_integral > 100.0) ? 100.0 : (E_integral < -100.0) ? -100: E_integral;
   E_derivativo = (Error - Error_ant) / (Tm / 1000.0);
   Control = Kp * (Error + Ti * E_integral + Td * E_derivativo);
   Error_ant = Error;
-  Control = (Control > 2.5) ? 2.5 : (Control < -2.5) ? -2.5: Control;
+
+  Control = AjusteVelocidad * Kp * (Error + Ti * E_integral + Td * E_derivativo);
+  Control = constrain(Control, -2.5, 2.5);
+  //Control = (Control > 2.5) ? 2.5 : (Control < -2.5) ? -2.5: Control;
   
   
   //Serial.println(Control);
@@ -294,20 +335,6 @@ void Datos(){
       client.println();
       client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
-      //client.stop();
-    }
-    // ✅ Nueva función: Botón LEER ESFUERZO
-    if (request.indexOf("accion=leer_esfuerzo") != -1) {
-      Serial.println("Botón Leer Esfuerzo presionado desde la app");
-      
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: text/plain");
-      client.println("Connection: close");
-      client.println();
-      client.println(",");
-      client.println(String(Salida) + "," + String(Control) + "," + String(Error));  // ✅ Solo los valores separados por coma
-      client.println();
-      client.stop();
     }
     if (request.indexOf("accion=inicio") != -1) {
       Estado = 1;
@@ -330,6 +357,28 @@ void Datos(){
       client.println();
     }
 
+    if (request.indexOf("accion=vueltainicio") != -1 && VueltaCompletada == 1) {
+      VueltaCompletada = 0;  // Se activa solo una vez
+      Serial.print("Vuelta: ");
+      Serial.println(VueltaCompletada);
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-type:text/plain");
+      client.println();
+      client.println("Vuelta OK");
+      client.println();
+    }
+
+    if (request.indexOf("accion=vuelta") != -1 && VueltaCompletada == 0) {
+      VueltaCompletada = 1;  // Se activa solo una vez
+      Serial.print("Vuelta: ");
+      Serial.println(VueltaCompletada);
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-type:text/plain");
+      client.println();
+      client.println("Vuelta OK");
+      client.println();
+    }
+
     if (request == "") {
       client.println("HTTP/1.1 400 Bad Request");
       client.println("Content-type:text/plain");
@@ -342,6 +391,7 @@ void Datos(){
     //Serial.println("Cliente desconectado");
   }
 }
+
 String getValue(String data, String key) {
   int start = data.indexOf(key);
   if (start == -1) return "";
@@ -349,4 +399,69 @@ String getValue(String data, String key) {
   int end = data.indexOf("&", start);
   if (end == -1) end = data.indexOf(" ", start);
   return data.substring(start, end);
+}
+
+// Función para calcular el promedio móvil
+float PromedioMovil(float nuevoError) {
+  errores[indicePromedio] = nuevoError;  // Guardar nuevo error en la ventana
+  indicePromedio = (indicePromedio + 1) % VENTANA_PROMEDIO;  // Mover índice
+  
+  float suma = 0;
+  for (int i = 0; i < VENTANA_PROMEDIO; i++) {
+    suma += errores[i];
+  }
+  return suma / VENTANA_PROMEDIO;
+}
+
+// Función para reconocer la pista en la primera vuelta
+void ReconocerPista(float error) {
+  if (indice < MAX_DATOS) {
+    pista[indice] = error;
+    indice++;
+  } else {
+    primeraVuelta = false;  // Finaliza el reconocimiento de la pista
+    GuardarPistaEnNVS();  // Guarda la pista en memoria
+  }
+}
+
+// Función para guardar la pista en memoria NVS
+void GuardarPistaEnNVS() {
+  if (!VueltaCompletada) {
+    memoriaNVS.begin("pista", false);  // Abre NVS
+    for (int i = 0; i < MAX_DATOS; i++) {
+      memoriaNVS.putFloat(String(i).c_str(), pista[i]);  // Guarda cada valor
+    }
+    memoriaNVS.end();  // Cierra NVS
+  }
+}
+
+// Función para cargar la pista desde la memoria NVS
+void CargarPistaDesdeNVS() {
+  memoriaNVS.begin("pista", true);  // Abre NVS en modo lectura
+  for (int i = 0; i < MAX_DATOS; i++) {
+    pista[i] = memoriaNVS.getFloat(String(i).c_str(), 0.0);  // Carga cada valor
+  }
+  memoriaNVS.end();  // Cierra NVS
+}
+
+void Inicializacion_Memoria(){
+  memoriaNVS.begin("pista", true);  // Abre la memoria NVS en modo lectura
+  if (memoriaNVS.isKey("0")) {  // Si hay datos guardados
+    CargarPistaDesdeNVS();  // Cargar la pista en la memoria del robot
+    primeraVuelta = false;  // Ya tiene datos guardados, no necesita aprender
+  }
+  memoriaNVS.end();
+}
+
+bool DetectarVuelta(float errorActual) {
+  // Compara los primeros valores guardados con el error actual
+  if (indice >= MAX_DATOS / 2) {  // Solo compara después de recorrer la mitad
+    for (int i = 0; i < 10; i++) {  // Compara con los primeros 10 datos de la pista
+      if (abs(errorActual - pista[i]) > 0.05) {  
+        return false;  // Si hay mucha diferencia, aún no completó la vuelta
+      }
+    }
+    return true;  // Si los valores son similares, ha completado la vuelta
+  }
+  return false;
 }
