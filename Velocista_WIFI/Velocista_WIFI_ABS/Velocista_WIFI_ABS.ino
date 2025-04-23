@@ -25,7 +25,7 @@ Servo myTurbina;
 
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
-int ValTurb = 150,minvaltur=50,maxvaltur=180; 
+int ValTurb = 80,minvaltur=50,maxvaltur=180; 
 float KTurb=0.6;
 
 //Variables para sensores
@@ -46,8 +46,8 @@ float Tm = 9.0;  //tiempo de muestreo en mili segundos
 //Variables del controlador PID
 float Referencia = 0.0, Control = 0.0, Kp = 2.0, Ti = 0, Td = 0.02;
 float Salida = 0.0, Error = 0.0, Error_ant = 0.0;  //variables de control
-float offset = 1, Vmax = 250, E_integral;
-
+float offset = 1, Vmax = 250,Vreal=250, E_integral;
+float umbral_curva = 0.3;
 //Variables del WIFI
 String var1 = "0",var2 = "0",var3 = "0",var4 = "0",var5 = "0",var6 = "0";
 
@@ -139,10 +139,9 @@ float Lectura_Sensor(void) {
 float Controlador(float Referencia, float Salida) {  // Funcion para la ley de control
   float E_derivativo;
   float Control;
-
-// Variables estáticas para mantener su valor entre llamadas
-  static float incremento_velocidad = 0.0; // Factor adicional de velocidad
-  static unsigned long tiempo_error_bajo = 0; // Tiempo que el error ha estado bajo
+  float Vcur=Vmax-50, Vrect=Vmax+50;
+  Vcur=constrain(Vcur,0,1000);
+  Vrect=constrain(Vrect,0,1000);
 
   Error = Referencia - Salida;
   Error = (Error > -0.2 && Error < 0) ? 0 : (Error > 0 && Error < 0.2) ? 0: Error;
@@ -151,58 +150,26 @@ float Controlador(float Referencia, float Salida) {  // Funcion para la ley de c
   E_derivativo = (Error - Error_ant) / (Tm / 1000.0);
   Control = Kp * (Error + Ti * E_integral + Td * E_derivativo);
   Error_ant = Error;
-
-  // Detección de recta: Si el error y su derivada son bajos durante un tiempo prolongado
-  if (abs(Error) < 0.2 && abs(E_derivativo) < 0.05) {
-    tiempo_error_bajo += Tm;  // Acumular tiempo con error bajo
-
-    // Si el robot ha estado en una recta por más de 3 segundos
-    if (tiempo_error_bajo >= 300) {
-      incremento_velocidad += 0.1; // Aumentar la velocidad
-      tiempo_error_bajo = 0; // Reiniciar el contador
-    }
-  }else {
-    tiempo_error_bajo = 0; // Reiniciar si el error no está en el rango
-    // Si el robot entra en una curva (derivada alta), reducir la velocidad
-    if (abs(E_derivativo) > 0.3) {
-      incremento_velocidad -= 0.1;
-    }
+  Control = (Control > 2.5) ? 2.5 : (Control < -2.5) ? -2.5: Control;
+  
+  if (abs(Error) > umbral_curva) {
+    Vreal = Vcur;
+  } else {
+    Vreal = Vrect;
   }
-
-  // Limitar el incremento de velocidad
-  incremento_velocidad = constrain(incremento_velocidad, 0.0, 0.5);
-
-  
-
-  if(Control > 0){
-    // Aplicar el incremento de velocidad
-    Control += incremento_velocidad;
-  }else{
-    // Aplicar el incremento de velocidad
-    if(incremento_velocidad>0){
-      Control -= incremento_velocidad;
-    }else{
-      Control += incremento_velocidad;
-    }
-    
-  }
-
-  Control = (Control > 2.7) ? 2.7 : (Control < -2.7) ? -2.7: Control;
-
-  
-  
   //Serial.println(Control);
   return Control;
 }
 
 void Esfuerzo_Control(float Control) {  //envia el esfuerzo de control en forma de PWM
   float s1, s2;
+  
 
   s1 = (offset - Control);
   s2 = (offset + Control);
 
-  ledcWrite(Canales[0], floor(constrain(abs(s1), 0.0, 1.0) * Vmax));
-  ledcWrite(Canales[1], floor(constrain(abs(s2), 0.0, 1.0) * Vmax));
+  ledcWrite(Canales[0], floor(constrain(abs(s1), 0.0, 1.0) * Vreal));
+  ledcWrite(Canales[1], floor(constrain(abs(s2), 0.0, 1.0) * Vreal));
 
   if (s1 <= 0.0) {  // Motor Derecho
     digitalWrite(DirD, LOW);
@@ -286,8 +253,8 @@ void Datos(){
       }
     }
     
-    Serial.println("Solicitud recibida:");
-    Serial.println(request);
+    /*Serial.println("Solicitud recibida:");
+    Serial.println(request);*/
     request.trim();  // Elimina espacios y saltos de línea
 
 
@@ -334,6 +301,20 @@ void Datos(){
       client.println();
       client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
+      //client.stop();
+    }
+    // ✅ Nueva función: Botón LEER ESFUERZO
+    if (request.indexOf("accion=leer_esfuerzo") != -1) {
+      //Serial.println("Botón Leer Esfuerzo presionado desde la app");
+      
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: text/plain");
+      client.println("Connection: close");
+      client.println();
+      client.println(",");
+      client.println(String(Salida) + "," + String(Control) + "," + String(Error)+ "," + String(qtra.readLine(sensorValues)));  // ✅ Solo los valores separados por coma
+      client.println();
+      client.stop();
     }
     if (request.indexOf("accion=inicio") != -1) {
       Estado = 1;
