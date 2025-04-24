@@ -25,7 +25,7 @@ Servo myTurbina;
 
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
-int ValTurb = 80,minvaltur=50,maxvaltur=180; 
+int ValTurb = 0,minvaltur=50,maxvaltur=180; 
 float KTurb=0.6;
 
 //Variables para sensores
@@ -45,7 +45,7 @@ float Tm = 9.0;  //tiempo de muestreo en mili segundos
 
 //Variables del controlador PID
 float Referencia = 0.0, Control = 0.0, Kp = 2.0, Ti = 0, Td = 0.02;
-float Salida = 0.0, Error = 0.0, Error_ant = 0.0;  //variables de control
+float Salida = 0.0, Error = 0.0, Error_ant = 0.0, Salida_ant=0.0;  //variables de control
 float offset = 1, Vmax = 250,Vreal=250, E_integral;
 float umbral_curva = 0.3;
 //Variables del WIFI
@@ -148,8 +148,10 @@ float Controlador(float Referencia, float Salida) {  // Funcion para la ley de c
   E_integral = E_integral + (((Error * (Tm / 1000.0)) + ((Tm / 1000.0) * (Error - Error_ant))) / 2.0);
   E_integral = (E_integral > 100.0) ? 100.0 : (E_integral < -100.0) ? -100: E_integral;
   E_derivativo = (Error - Error_ant) / (Tm / 1000.0);
+  //E_derivativo = (Salida - Salida_ant) / (Tm / 1000.0);
   Control = Kp * (Error + Ti * E_integral + Td * E_derivativo);
   Error_ant = Error;
+  Salida_ant=Salida;
   Control = (Control > 2.5) ? 2.5 : (Control < -2.5) ? -2.5: Control;
   
   if (abs(Error) > umbral_curva) {

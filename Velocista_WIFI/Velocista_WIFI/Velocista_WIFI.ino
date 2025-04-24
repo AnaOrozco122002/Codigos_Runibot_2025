@@ -25,7 +25,7 @@ Servo myTurbina;
 
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
-int ValTurb = 80,minvaltur=50,maxvaltur=180; 
+int ValTurb = 0,minvaltur=60,maxvaltur=180; 
 float KTurb=0.6;
 
 //Variables para sensores
@@ -104,8 +104,8 @@ void loop() {
     Control = Controlador(Referencia, Salida);  // funcion de la ley de control
     Esfuerzo_Control(Control);                  // funcion encargada de enviar el esfuerzo de control
     Tm = Tiempo_Muestreo(Tinicio);
-    myTurbina.write(ValTurb);
-    //Esfuerzo_Turbina(); //Turbina Variable
+    //myTurbina.write(ValTurb);
+    Esfuerzo_Turbina(); //Turbina Variable
     if(WIFI_Status){
       Datos();
     }
@@ -272,7 +272,8 @@ void Datos(){
       if (var1 != "") Kp = var1.toFloat();
       if (var2 != "") Td = var2.toFloat();
       if (var3 != "") Ti = var3.toFloat();
-      if (var4 != "") ValTurb = var4.toFloat();
+      //if (var4 != "") ValTurb = var4.toFloat();
+      if (var4 != "") KTurb = var4.toFloat();
       if (var5 != "") Vmax = var5.toFloat();
       if (var6 != "") offset = var6.toFloat();
 
@@ -292,20 +293,20 @@ void Datos(){
       client.println("HTTP/1.1 200 OK");
       client.println("Content-type:text/plain");
       client.println();
-      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
+      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(KTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
       //client.stop();
     }
     // ✅ Nueva función: Botón LEER ESFUERZO
     if (request.indexOf("accion=leer_esfuerzo") != -1) {
-      Serial.println("Botón Leer Esfuerzo presionado desde la app");
+      //Serial.println("Botón Leer Esfuerzo presionado desde la app");
       
       client.println("HTTP/1.1 200 OK");
       client.println("Content-Type: text/plain");
       client.println("Connection: close");
       client.println();
       client.println(",");
-      client.println(String(Salida) + "," + String(Control) + "," + String(Error));  // ✅ Solo los valores separados por coma
+      client.println(String(Salida) + "," + String(Control) + "," + String(Error)+ "," + String(qtra.readLine(sensorValues)));  // ✅ Solo los valores separados por coma
       client.println();
       client.stop();
     }
