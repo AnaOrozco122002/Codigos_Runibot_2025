@@ -41,7 +41,7 @@ unsigned int sensorValues[NUM_SENSORS];
 
 
 //Variables para el controlador
-float Tm = 9.0;  //tiempo de muestreo en mili segundos
+float Tm = 4.0;  //tiempo de muestreo en mili segundos
 
 //Variables del controlador PID
 float Referencia = 0.0, Control = 0.0, Kp = 2.0, Ti = 0, Td = 0.02;
@@ -103,14 +103,14 @@ void loop() {
     Salida = Lectura_Sensor();                  // funcion de lectura de la variable salida del  proceso
     Control = Controlador(Referencia, Salida);  // funcion de la ley de control
     Esfuerzo_Control(Control);                  // funcion encargada de enviar el esfuerzo de control
-    Tm = Tiempo_Muestreo(Tinicio);
-    //myTurbina.write(ValTurb);
-    Esfuerzo_Turbina(); //Turbina Variable
+    myTurbina.write(ValTurb);
+    //Esfuerzo_Turbina(); //Turbina Variable
     if(WIFI_Status){
       Datos();
     }
     turen = true; //Variable que indica que se entro en el while
     //Serial.println("Entro");
+    Tm = Tiempo_Muestreo(Tinicio);
   }
   if(turen){
     ledcWrite(Canales[0], 0);
@@ -272,8 +272,8 @@ void Datos(){
       if (var1 != "") Kp = var1.toFloat();
       if (var2 != "") Td = var2.toFloat();
       if (var3 != "") Ti = var3.toFloat();
-      //if (var4 != "") ValTurb = var4.toFloat();
-      if (var4 != "") KTurb = var4.toFloat();
+      if (var4 != "") ValTurb = var4.toFloat();
+      //if (var4 != "") KTurb = var4.toFloat();
       if (var5 != "") Vmax = var5.toFloat();
       if (var6 != "") offset = var6.toFloat();
 
@@ -293,7 +293,7 @@ void Datos(){
       client.println("HTTP/1.1 200 OK");
       client.println("Content-type:text/plain");
       client.println();
-      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(KTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
+      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
       //client.stop();
     }
@@ -306,7 +306,7 @@ void Datos(){
       client.println("Connection: close");
       client.println();
       client.println(",");
-      client.println(String(Salida) + "," + String(Control) + "," + String(Error)+ "," + String(qtra.readLine(sensorValues)));  // ✅ Solo los valores separados por coma
+      client.println(String(Salida) + "," + String(Control) + "," + String(Error)+ "," + String(qtra.readLine(sensorValues))+ "," + String(Tm));  // ✅ Solo los valores separados por coma
       client.println();
       client.stop();
     }

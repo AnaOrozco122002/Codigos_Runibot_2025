@@ -25,7 +25,7 @@ Servo myTurbina;
 
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
-int ValTurb = 0,minvaltur=50,maxvaltur=180; 
+int ValTurb = 0,minvaltur=60,maxvaltur=180; 
 float KTurb=0.6;
 
 //Variables para sensores
@@ -41,18 +41,17 @@ unsigned int sensorValues[NUM_SENSORS];
 
 
 //Variables para el controlador
-float Tm = 9.0;  //tiempo de muestreo en mili segundos
+float Tm = 4000,Tinicio=0,T=2000;  //tiempo de muestreo en mili segundos
 
 //Variables del controlador PID
 float Referencia = 0.0, Control = 0.0, Kp = 2.0, Ti = 0, Td = 0.02;
-float Salida = 0.0, Error = 0.0, Error_ant = 0.0, Salida_ant=0.0;  //variables de control
-float offset = 1, Vmax = 250,Vreal=250, E_integral;
-float umbral_curva = 0.35;
+float Salida = 0.0, Error = 0.0, Error_ant = 0.0;  //variables de control
+float offset = 1, Vmax = 250, E_derivativo=0, Control=0;
+
 //Variables del WIFI
 String var1 = "0",var2 = "0",var3 = "0",var4 = "0",var5 = "0",var6 = "0";
 
 //Variables Auxiliares
-unsigned long int Tinicio = 0;
 bool conect = false,turen = false;
 
 //CREACIÓN DE PWM
@@ -103,14 +102,14 @@ void loop() {
     Salida = Lectura_Sensor();                  // funcion de lectura de la variable salida del  proceso
     Control = Controlador(Referencia, Salida);  // funcion de la ley de control
     Esfuerzo_Control(Control);                  // funcion encargada de enviar el esfuerzo de control
-    Tm = Tiempo_Muestreo(Tinicio);
-    //myTurbina.write(ValTurb);
-    Esfuerzo_Turbina(); //Turbina Variable
+    myTurbina.write(ValTurb);
+    //Esfuerzo_Turbina(); //Turbina Variable
     if(WIFI_Status){
       Datos();
     }
     turen = true; //Variable que indica que se entro en el while
     //Serial.println("Entro");
+    Tm = Tiempo_Muestreo(Tinicio);
   }
   if(turen){
     ledcWrite(Canales[0], 0);
@@ -128,50 +127,29 @@ void loop() {
   }
 }
 
-//Para leer el sensor
 float Lectura_Sensor(void) {
   Salida = (qtra.readLine(sensorValues) / 7500.0) - 1.0;
-  //Serial.println(Salida);
-  return Salida;  // retorno la variable de salidad del proceso normalizada entre 0-1, al olgoritmo de control
+  return Salida;
 }
-
-//Controlador para Motores
-float Controlador(float Referencia, float Salida) {  // Funcion para la ley de control
-  float E_derivativo;
-  float Control;
-  float Vcur=Vmax-50, Vrect=Vmax+20;
-  Vcur=constrain(Vcur,0,1000);
-  Vrect=constrain(Vrect,0,1000);
-
+float Controlador(float Referencia, float Salida) { 
+  E_derivativo=0,Control=0;
   Error = Referencia - Salida;
   Error = (Error > -0.2 && Error < 0) ? 0 : (Error > 0 && Error < 0.2) ? 0: Error;
-  E_integral = E_integral + (((Error * (Tm / 1000.0)) + ((Tm / 1000.0) * (Error - Error_ant))) / 2.0);
-  E_integral = (E_integral > 100.0) ? 100.0 : (E_integral < -100.0) ? -100: E_integral;
   E_derivativo = (Error - Error_ant) / (Tm / 1000.0);
-  //E_derivativo = (Salida - Salida_ant) / (Tm / 1000.0);
-  Control = Kp * (Error + Ti * E_integral + Td * E_derivativo);
+  Control = Kp * (Error + Td * E_derivativo);
   Error_ant = Error;
-  Salida_ant=Salida;
   Control = (Control > 2.5) ? 2.5 : (Control < -2.5) ? -2.5: Control;
-  
-  if (fabs(Error) > umbral_curva) {
-    Vreal = Vcur;
-  } else {
-    Vreal = Vrect;
-  }
-  //Serial.println(Control);
   return Control;
 }
 
 void Esfuerzo_Control(float Control) {  //envia el esfuerzo de control en forma de PWM
   float s1, s2;
-  
 
   s1 = (offset - Control);
   s2 = (offset + Control);
 
-  ledcWrite(Canales[0], floor(constrain(abs(s1), 0.0, 1.0) * Vreal));
-  ledcWrite(Canales[1], floor(constrain(abs(s2), 0.0, 1.0) * Vreal));
+  ledcWrite(Canales[0], floor(constrain(abs(s1), 0.0, 1.0) * Vmax));
+  ledcWrite(Canales[1], floor(constrain(abs(s2), 0.0, 1.0) * Vmax));
 
   if (s1 <= 0.0) {  // Motor Derecho
     digitalWrite(DirD, LOW);
@@ -255,8 +233,8 @@ void Datos(){
       }
     }
     
-    /*Serial.println("Solicitud recibida:");
-    Serial.println(request);*/
+    Serial.println("Solicitud recibida:");
+    Serial.println(request);
     request.trim();  // Elimina espacios y saltos de línea
 
 
@@ -281,8 +259,8 @@ void Datos(){
       if (var1 != "") Kp = var1.toFloat();
       if (var2 != "") Td = var2.toFloat();
       if (var3 != "") Ti = var3.toFloat();
-      //if (var4 != "") ValTurb = var4.toFloat();
-      if (var4 != "") KTurb = var4.toFloat();
+      if (var4 != "") ValTurb = var4.toFloat();
+      //if (var4 != "") KTurb = var4.toFloat();
       if (var5 != "") Vmax = var5.toFloat();
       if (var6 != "") offset = var6.toFloat();
 
@@ -302,7 +280,7 @@ void Datos(){
       client.println("HTTP/1.1 200 OK");
       client.println("Content-type:text/plain");
       client.println();
-      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(KTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
+      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
       //client.stop();
     }
