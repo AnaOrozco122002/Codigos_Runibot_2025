@@ -26,7 +26,7 @@ Servo myTurbina;
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
 int ValTurb = 0,minvaltur=60,maxvaltur=180; 
-float KTurb=0.6;
+float KTurb=0.6,estur=0;
 
 //Variables para sensores
 #define NUM_SENSORS 16            // Numero de sensores usados
@@ -41,17 +41,18 @@ unsigned int sensorValues[NUM_SENSORS];
 
 
 //Variables para el controlador
-float Tm = 4000,Tinicio=0,T=2000;  //tiempo de muestreo en mili segundos
+float Tm = 4.0;  //tiempo de muestreo en mili segundos
 
 //Variables del controlador PID
-float Referencia = 0.0, Control = 0.0, Kp = 2.0, Ti = 0, Td = 0.02;
+float Referencia = 0.0, Control = 0.0, Kp = 2.0, Td = 0.02,Ti=0;
 float Salida = 0.0, Error = 0.0, Error_ant = 0.0;  //variables de control
-float offset = 1, Vmax = 250, E_derivativo=0, Control=0;
+float offset = 1, Vmax = 250, E_derivativo=0, Control_s = 0.0,s1=0,s2=0;
 
 //Variables del WIFI
 String var1 = "0",var2 = "0",var3 = "0",var4 = "0",var5 = "0",var6 = "0";
 
 //Variables Auxiliares
+float Tinicio = 0,T=0;
 bool conect = false,turen = false;
 
 //CREACIÓN DE PWM
@@ -93,22 +94,20 @@ void setup() {
 }
 
 void loop() {
-  
   //Estado = digitalRead(MInit);
   //Estado=1; //Para Desactivar el modulo de Inicio
   while (Estado) {
     //Estado = digitalRead(MInit);
-    Tinicio = millis();                         // toma el valor en milisengundos
-    Salida = Lectura_Sensor();                  // funcion de lectura de la variable salida del  proceso
-    Control = Controlador(Referencia, Salida);  // funcion de la ley de control
-    Esfuerzo_Control(Control);                  // funcion encargada de enviar el esfuerzo de control
+    Tinicio = millis();                         
+    Salida = Lectura_Sensor();                  
+    Control = Controlador(Referencia, Salida);  
+    Esfuerzo_Control(Control);                  
     myTurbina.write(ValTurb);
     //Esfuerzo_Turbina(); //Turbina Variable
     if(WIFI_Status){
       Datos();
     }
-    turen = true; //Variable que indica que se entro en el while
-    //Serial.println("Entro");
+    turen = true;
     Tm = Tiempo_Muestreo(Tinicio);
   }
   if(turen){
@@ -118,7 +117,6 @@ void loop() {
     if(WIFI_Status){
       Datos();
     }
-    //Serial.println("no");
   }
   ledcWrite(Canales[0], 0);
   ledcWrite(Canales[1], 0);
@@ -127,53 +125,48 @@ void loop() {
   }
 }
 
+//Para leer el sensor
 float Lectura_Sensor(void) {
   Salida = (qtra.readLine(sensorValues) / 7500.0) - 1.0;
-  return Salida;
+  return Salida;  // retorno la variable de salidad del proceso normalizada entre 0-1, al olgoritmo de control
 }
-float Controlador(float Referencia, float Salida) { 
-  E_derivativo=0,Control=0;
+
+//Controlador para Motores
+float Controlador(float Referencia, float Salida) {  // Funcion para la ley de control
+  Control_s=0;
   Error = Referencia - Salida;
-  Error = (Error > -0.2 && Error < 0) ? 0 : (Error > 0 && Error < 0.2) ? 0: Error;
+  if (fabs(Error) < 0.2) Error = 0;
   E_derivativo = (Error - Error_ant) / (Tm / 1000.0);
-  Control = Kp * (Error + Td * E_derivativo);
+  Control_s = Kp * (Error + Td * E_derivativo);
   Error_ant = Error;
-  Control = (Control > 2.5) ? 2.5 : (Control < -2.5) ? -2.5: Control;
-  return Control;
+  Control_s= constrain(Control_s, -2.5, 2.5);
+  return Control_s;
 }
 
-void Esfuerzo_Control(float Control) {  //envia el esfuerzo de control en forma de PWM
-  float s1, s2;
-
+void Esfuerzo_Control(float Control) {
   s1 = (offset - Control);
   s2 = (offset + Control);
-
   ledcWrite(Canales[0], floor(constrain(abs(s1), 0.0, 1.0) * Vmax));
   ledcWrite(Canales[1], floor(constrain(abs(s2), 0.0, 1.0) * Vmax));
-
   if (s1 <= 0.0) {  // Motor Derecho
     digitalWrite(DirD, LOW);
   } else {
     digitalWrite(DirD, HIGH);
   }
-
-  if (s2 <= 0.0) {  //Motor Izquierdo
+  if (s2 <= 0.0) {
     digitalWrite(DirI, LOW);
   } else {
     digitalWrite(DirI, HIGH);
   }
 }
-
 //Turbina Variable
 void Esfuerzo_Turbina(){
-  float estur;
   estur=constrain(round(minvaltur+((KTurb*abs(Error))*(maxvaltur-minvaltur))),minvaltur,maxvaltur);
-  //Serial.println(" Esfuerzo: " + String(estur));
   myTurbina.write(estur);
 }
 
 unsigned long int Tiempo_Muestreo(unsigned long int Tinicio) {  //, unsigned int Tm){ // Funcion que asegura que el tiempo de muestreo sea el mismo siempre
-  unsigned long int T = millis() - Tinicio;
+  T = millis() - Tinicio;
   return T;
 }
 
@@ -184,19 +177,16 @@ void CrearPWM() {
   ledcAttachPin(PWMI, Canales[1]);
 }
 void Inicializacion_turbina() {
-  //Mensajes de Inicio
   ESP32PWM::allocateTimer(2);
-  myTurbina.setPeriodHertz(50);       //frecuencia de la señal cuadrada
-  myTurbina.attach(Tur, 1000, 2000);  //(pin,min us de pulso, máx us de pulso)
+  myTurbina.setPeriodHertz(50);       
+  myTurbina.attach(Tur, 1000, 2000);  
   myTurbina.write(0); 
 }
 
 void Inicializacion_Sensores() {
-  //Calibración Inicial de Pines Sensor
-  for (int i = 0; i < 300; i++) {  // make the calibration take about 10 seconds
-    qtra.calibrate();              // reads all sensors 10 times at 2.5 ms per six sensors (i.e. ~25 ms per call)
+  for (int i = 0; i < 300; i++) {
+    qtra.calibrate();
   }
-  //delay(2000);
 }
 
 void Inicializacion_Pines() {
@@ -210,12 +200,8 @@ void Inicializacion_Pines() {
 }
 
 void Inicializacion_WIFI(){
-  // Configuración del Access Point
   WiFi.softAPConfig(local_IP, gateway, subnet);
   WiFi.softAP(ssid, password);
-  /*Serial.println("Access Point Iniciado");
-  Serial.print("IP del servidor: ");
-  Serial.println(WiFi.softAPIP());*/
   server.begin();
 }
 

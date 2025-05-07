@@ -25,8 +25,8 @@ Servo myTurbina;
 
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
-int ValTurb = 0,minvaltur=60,maxvaltur=180; 
-float KTurb=0.6;
+int ValTurb = 0,minvaltur=110,maxvaltur=180; 
+float KTurb=0.5;
 
 //Variables para sensores
 #define NUM_SENSORS 16            // Numero de sensores usados
@@ -56,7 +56,7 @@ unsigned long int Tinicio = 0;
 bool conect = false,turen = false;
 
 //CREACIÓN DE PWM
-const uint16_t Frecuencia = 5000;
+const uint16_t Frecuencia = 13500;
 const byte Canales[] = { 0, 1 };
 const byte Resolucion = 10;
 
@@ -103,8 +103,8 @@ void loop() {
     Salida = Lectura_Sensor();                  // funcion de lectura de la variable salida del  proceso
     Control = Controlador(Referencia, Salida);  // funcion de la ley de control
     Esfuerzo_Control(Control);                  // funcion encargada de enviar el esfuerzo de control
-    myTurbina.write(ValTurb);
-    //Esfuerzo_Turbina(); //Turbina Variable
+    //myTurbina.write(ValTurb);
+    Esfuerzo_Turbina(); //Turbina Variable
     if(WIFI_Status){
       Datos();
     }
@@ -272,8 +272,8 @@ void Datos(){
       if (var1 != "") Kp = var1.toFloat();
       if (var2 != "") Td = var2.toFloat();
       if (var3 != "") Ti = var3.toFloat();
-      if (var4 != "") ValTurb = var4.toFloat();
-      //if (var4 != "") KTurb = var4.toFloat();
+      //if (var4 != "") ValTurb = var4.toFloat();
+      if (var4 != "") KTurb = var4.toFloat();
       if (var5 != "") Vmax = var5.toFloat();
       if (var6 != "") offset = var6.toFloat();
 
@@ -293,7 +293,7 @@ void Datos(){
       client.println("HTTP/1.1 200 OK");
       client.println("Content-type:text/plain");
       client.println();
-      client.println(String(Kp) + "," + String(Td) + "," + String(Ti) + "," + String(ValTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
+      client.println(String(Kp,3) + "," + String(Td,3) + "," + String(Ti) + "," + String(KTurb) + "," + String(Vmax) + "," + String(offset) + "," +  String(Estado));
       client.println();
       //client.stop();
     }
