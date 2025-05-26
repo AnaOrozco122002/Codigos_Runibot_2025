@@ -26,7 +26,7 @@ Servo myTurbina;
 //PIN PARA EL CONTROL DE TURBINA
 const byte Tur = D4;
 int ValTurb = 0,minvaltur=110,maxvaltur=180; 
-float KTurb=0.5;
+float KTurb=0.7;
 
 //Variables para sensores
 #define NUM_SENSORS 16            // Numero de sensores usados
@@ -44,9 +44,9 @@ unsigned int sensorValues[NUM_SENSORS];
 float Tm = 4.0;  //tiempo de muestreo en mili segundos
 
 //Variables del controlador PID
-float Referencia = 0.0, Control = 0.0, Kp = 2.0, Ti = 0, Td = 0.02;
+float Referencia = 0.0, Control = 0.0, Kp = 1.8, Ti = 0, Td = 0.03;
 float Salida = 0.0, Error = 0.0, Error_ant = 0.0;  //variables de control
-float offset = 1, Vmax = 250, E_integral;
+float offset = 1, Vmax = 470, E_integral;
 
 //Variables del WIFI
 String var1 = "0",var2 = "0",var3 = "0",var4 = "0",var5 = "0",var6 = "0";
