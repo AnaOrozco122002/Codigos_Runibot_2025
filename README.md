@@ -27,9 +27,6 @@ Este repositorio contiene los códigos desarrollados para:
 ### 🚗 Velocista Seguidor de Línea
 
 - Se utilizó la librería **QTRSensors16** (modificación de la versión para 8 sensores). Esta se encuentra en la **carpeta raíz del proyecto** y debe importarse manualmente al IDE de Arduino.
-
-  ![Importar librería](https://github.com/AnaOrozco122002/Codigos_Runibot_2025/blob/master/Velocista_WIFI/images/add.jpg)
-
 - El sistema usa **WiFi**, por lo que el celular debe conectarse primero al **Access Point creado por la tarjeta**.
 - La aplicación móvil es compatible con dispositivos Android **versión 8 o superior**.
 
@@ -44,6 +41,7 @@ La librería `QTRSensors16` es una versión modificada de la librería estándar
 1. **Ubica la carpeta `QTRSensors16`** en la raíz del proyecto (debe estar junto al archivo `.ino` principal).
 2. Abre el **IDE de Arduino**.
 3. Ve al menú **"Programa" → "Incluir Librería" → "Añadir biblioteca .ZIP..."**.
+  ![Importar librería](https://github.com/AnaOrozco122002/Codigos_Runibot_2025/blob/master/Velocista_WIFI/images/add.jpg)
 4. En el explorador de archivos que se abre, selecciona la carpeta `QTRSensors16` o comprímela en `.zip` y selecciona el archivo ZIP.
 5. Verifica que la instalación se haya completado correctamente:  
    Ve a **"Programa" → "Incluir Librería"** y busca `QTRSensors16` en la lista.
