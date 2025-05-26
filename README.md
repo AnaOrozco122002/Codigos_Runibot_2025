@@ -1,79 +1,116 @@
 # Códigos para Runibot 2025
-### Sobre el código
-----------------------------------
 
-- Este es un código creado para los carros Futbolistas de 4 ruedas que se manejan con controles de Xbox Series X/S y PS5 y Seguidor de Linea que se maneja mediante una App
-- La versión del IDE de Arduino utilizada fue la 2.3.4
-- La versión de la libreria de Espressif para programación es la 2.0.11
-- El Link para programar tarjetas Esp32:
-`<link>` : https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+## Sobre el proyecto
 
+Este repositorio contiene los códigos desarrollados para:
 
-### Importante
-----------------------------------
+- **Futbolistas de 4 ruedas**, controlados mediante mandos de **Xbox Series X/S** y **PS5**.
+- **Velocista seguidor de línea**, controlado desde una **aplicación móvil** mediante conexión WiFi.
 
-#### Futbolistas
+### Entorno de desarrollo
 
-* Es necesario especificar la MAC de cada control al inicio del código para que se puedan conectar adecuadamente
+- IDE de Arduino: **Versión 2.3.4**
+- Librería de Espressif para ESP32: **Versión 2.0.11**
+- Enlace para instalar el soporte de placas ESP32 en el IDE:  
+  `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
 
-* Es necesario en el control de Xbox actualizar el software a la ultima versión de lo contrario la tarjeta se puede quedar en un loop infinito de Waiting Notification
+---
 
-* Al utilizar alguna animación el código no responderá de manera inmediata. 
+## Importante
 
-#### Velocista Seguidor de Linea
+### ⚽ Futbolistas
 
-* Se utilizó la librera QTRSensor16 que es la versión modificada de la libreria para 8, esta se encuentra en la carpeta raiz del proyecto y se debe importar al IDE de arduino
+- Es **obligatorio especificar la dirección MAC** de cada control al inicio del código para que puedan conectarse correctamente.
+- En los controles **Xbox**, es necesario tener el firmware actualizado. De lo contrario, la tarjeta puede quedarse en un bucle infinito con el mensaje `Waiting Notification`.
+- Al ejecutar una animación, la respuesta del robot puede **no ser inmediata**.
 
-![](https://github.com/AnaOrozco122002/Codigos_Runibot_2025/blob/master/Velocista_WIFI/images/add.jpg)
+### 🚗 Velocista Seguidor de Línea
 
-* La placa utiliza WIFI, por lo que para usar la aplicación se debe conectar el internet del celular primero al Access Point creado por la tarjeta
+- Se utilizó la librería **QTRSensors16** (modificación de la versión para 8 sensores). Esta se encuentra en la **carpeta raíz del proyecto** y debe importarse manualmente al IDE de Arduino.
 
-* La aplicación es para celulares con una versiónn de Android superior a la 8
+  ![Importar librería](https://github.com/AnaOrozco122002/Codigos_Runibot_2025/blob/master/Velocista_WIFI/images/add.jpg)
 
-### Pines Usados
-----------------------------------
+- El sistema usa **WiFi**, por lo que el celular debe conectarse primero al **Access Point creado por la tarjeta**.
+- La aplicación móvil es compatible con dispositivos Android **versión 8 o superior**.
 
-#### Futbolistas
+---
 
-Se utilizan los siguientes pines
+## 📦 Cómo importar la librería `QTRSensors16`
 
-* Pines de control del PWM: Motor A: 13, Motor B: 14, Motor C: 23, Motor D: 32
-* Pines de control de dirección: Motor A: 12 y 27, Motor B: 4 y 5, Motor C: 18 y 19, Motor D: 26 y 25
-* Para la pantalla se usan los pines por defecto para conexión por bus de la tarjeta esp32.
+La librería `QTRSensors16` es una versión modificada de la librería estándar de sensores QTR. Esta versión permite el uso de 16 sensores y es necesaria para el funcionamiento del **Velocista Seguidor de Línea**.
 
+### Pasos para instalarla en el IDE de Arduino
 
-#### Velocista Seguidor de Linea
+1. **Ubica la carpeta `QTRSensors16`** en la raíz del proyecto (debe estar junto al archivo `.ino` principal).
+2. Abre el **IDE de Arduino**.
+3. Ve al menú **"Programa" → "Incluir Librería" → "Añadir biblioteca .ZIP..."**.
+4. En el explorador de archivos que se abre, selecciona la carpeta `QTRSensors16` o comprímela en `.zip` y selecciona el archivo ZIP.
+5. Verifica que la instalación se haya completado correctamente:  
+   Ve a **"Programa" → "Incluir Librería"** y busca `QTRSensors16` en la lista.
 
-* Pin Analogico para la entrada del sensor: A2 
-* Pines Digitales para la lectura del multiplexor del sensor: D9,D10,D0,D1
-* Pines de control del PWM: Motor Derecho: D8, Motor Izquierdo: D6
-* Pines de control de Dirección: Motor Derecho: D7, Motor Izquierdo: D5
-* Pin Controlador de Turbina: D4
-* Pin del modulo de inicio: D3
+---
 
-### Cómo funciona
-----------------------------------
+## Pines utilizados
 
-#### Futbolistas
+### ⚽ Futbolistas
 
-* ### Conectar Controles
+- **PWM (control de velocidad)**:
+  - Motor A: GPIO 13  
+  - Motor B: GPIO 14  
+  - Motor C: GPIO 23  
+  - Motor D: GPIO 32
 
-- Para conectar el control de PS5 se debe oprimir el botón de Share y PS (Logo de playstation) durante 5 segundos hasta que empiece a parpadear de manera rapido, cuando se conecte tendra un color solido permanente indicando la conexión.
+- **Dirección (control de sentido)**:
+  - Motor A: GPIOs 12 y 27  
+  - Motor B: GPIOs 4 y 5  
+  - Motor C: GPIOs 18 y 19  
+  - Motor D: GPIOs 26 y 25
 
--Para conectar el control de Xbox se debe encender al oprimir el icono de xbox, cuando este parpadeando se debe oprimir el botón que esta en la parte superior (share) durante 5 segundos hasta que empiece a parpadear de manera rapida, cuando se conecte el control tendra un color solido de color blanco.
+- **Pantalla OLED**: Se usan los pines por defecto del bus I2C del ESP32.
 
-* ### Manejo
+### 🚗 Velocista Seguidor de Línea
 
-- Para andar hacia adelante se debe oprimir el gatillo derecho (Rt en Xbox y R2 en playstation)
+- **Sensor QTR**:
+  - Entrada analógica: A2  
+  - Multiplexor (digitales): D9, D10, D0, D1
 
-- Para andar hacia atras se debe oprimir el gatillo Izquierdo (Lt en Xbox y L2 en playstation)
+- **Motores**:
+  - PWM:
+    - Motor Derecho: D8  
+    - Motor Izquierdo: D6
+  - Dirección:
+    - Motor Derecho: D7  
+    - Motor Izquierdo: D5
 
-- Para girar se puede realizar girando el joystick izquierdo en la dirección de giro (para girar hacia atras es necesario oprimir el gatillo izquierdo)
+- **Otros**:
+  - Turbina: D4  
+  - Módulo de inicio: D3
 
-- Para realizar las animaciones correspondientes se debe oprimir los botones ubicados en la parte derecha de los controles, al oprimir el superior se muestra una cara enojada, al oprimir el boton derecho es la cara por defecto, al oprimir el boton inferior parpadea y al oprimir la combinación de botones del boton derecho y la flecha hacia arriba se presenta la animación.
+---
 
-#### Velocista Seguidor de Linea
+## ¿Cómo funciona?
 
-- Para usar la aplicación se debe conectar primero al Wifi de la tarjeta
+### ⚽ Futbolistas
 
-- El botón de inicio y parar solo funcionarán de manera correcta cuando se desactive el uso del modulo de inicio.
+#### 🔗 Conexión de controles
+
+- **PS5**: Mantén presionados los botones **Share + PS (logo)** por 5 segundos hasta que el LED parpadee rápidamente. Cuando se conecte, el LED quedará con **color sólido**.
+- **Xbox**: Enciende el control (botón Xbox), luego mantén presionado el botón superior (Share) por 5 segundos hasta que el LED parpadee rápidamente. Al conectarse, el LED quedará en **blanco sólido**.
+
+#### 🕹️ Manejo
+
+- **Avanzar**: Gatillo derecho (RT en Xbox / R2 en PS5)  
+- **Retroceder**: Gatillo izquierdo (LT en Xbox / L2 en PS5)  
+- **Girar**: Joystick izquierdo en la dirección deseada (si se desea girar en reversa, mantener el gatillo izquierdo presionado)  
+- **Animaciones**:
+  - Botón superior derecho → Cara enojada 😠  
+  - Botón derecho → Cara neutra 🙂  
+  - Botón inferior → Parpadeo 👀  
+  - Combinación botón derecho + flecha arriba → Animación especial 🎉
+
+---
+
+### 🚗 Velocista Seguidor de Línea
+
+- Conecta el celular al **WiFi creado por la tarjeta**.
+- La aplicación cuenta con botones de **inicio/parada**, que funcionarán correctamente **solo si el módulo de inicio está desactivado**.
